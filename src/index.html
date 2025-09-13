@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Coin Arena</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="client.js" defer></script>
+</head>
+<body>
+
+<div id="join-screen">
+    <h1>Coin Arena</h1>
+    <input id="playerName" placeholder="Your Name"/>
+    <button id="joinBtn">Join</button>
+</div>
+
+<div id="lobby-screen" style="display:none;">
+    <h2>Waiting for players...</h2>
+    <ul id="playersList"></ul>
+    <button id="startBtn" style="display:none;">Start</button>
+</div>
+
+<div id="game-screen" style="display:none;">
+    <div id="hud">
+        <span id="timer">60</span>
+        <span id="score">0</span>
+        <button id="pauseBtn">Menu</button>
+    </div>
+    <div id="arena"></div>
+    <div id="menu" style="display:none;">
+        <button id="resumeBtn">Continue</button>
+        <button id="quitBtn">Quit</button>
+    </div>
+</div>
+
+<div id="result-screen" style="display:none;">
+    <h2>Results</h2>
+    <ul id="resultList"></ul>
+    <button onclick="location.reload()">Play Again</button>
+</div>
+
+<audio id="soundStart" src="audio/start.mp3"></audio>
+<audio id="soundCoin" src="audio/coin.mp3"></audio>
+<audio id="soundEnd" src="audio/end.mp3"></audio>
+
+</body>
+</html>

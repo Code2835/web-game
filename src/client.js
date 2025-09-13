@@ -1,0 +1,315 @@
+const LOG = true;
+const playerId = Date.now().toString();
+let playerName = '';
+let players = {};
+let coins = [];
+let gameTime = 60;
+let timerInterval = null;
+let paused = false;
+
+if (LOG) console.log('client.js loaded', {href: location.href, playerId});
+
+let ws = null;
+
+function initWS() {
+    try {
+        const url = `ws://${location.host}`;
+        if (LOG) console.log('connect ws', url);
+        ws = new WebSocket(url);
+
+        ws.onopen = () => LOG && console.log('ws open');
+        ws.onclose = () => LOG && console.log('ws close');
+        ws.onerror = e => console.error('ws error', e);
+
+        ws.onmessage = e => {
+            let data;
+            try {
+                data = JSON.parse(e.data);
+            } catch (err) {
+                console.warn('invalid ws msg', e.data);
+                return;
+            }
+            if (LOG) console.log('ws msg', data.type, data);
+            handleMessage(data);
+        };
+    } catch (err) {
+        console.error('ws init failed', err);
+    }
+}
+
+initWS();
+
+const keys = {};
+const MOVE_FPS = 30;
+const SPEED = 3;
+
+function handleMessage(data) {
+    if (data.type === 'lobby') {
+        players = data.players || {};
+        showLobby();
+        renderPlayers();
+        const startBtn = document.getElementById('startBtn');
+        if (startBtn) {
+            if (data.leaderId && String(data.leaderId) === String(playerId)) startBtn.style.display = 'block';
+            else startBtn.style.display = 'none';
+        }
+        const list = document.getElementById('playersList');
+        if (list) {
+            list.innerHTML = '';
+            Object.values(players).forEach(p => {
+                const li = document.createElement('li');
+                li.textContent = p.name + (p.name === playerName ? ' (You)' : '');
+                list.appendChild(li);
+            });
+        }
+        return;
+    }
+    if (data.type === 'gameStart') {
+        coins = data.coins || [];
+        gameTime = data.gameTime || 60;
+        showGame();
+        renderCoins();
+        startTimer();
+        return;
+    }
+    if (data.type === 'players') {
+        players = data.players || {};
+        renderPlayers();
+        updateScore();
+        return;
+    }
+    if (data.type === 'coins') {
+        coins = data.coins || [];
+        renderCoins();
+        return;
+    }
+    if (data.type === 'menuAction') {
+        if (data.action === 'pause') paused = true;
+        if (data.action === 'resume') paused = false;
+        if (data.action === 'quit') location.reload();
+        return;
+    }
+}
+
+function showLobby() {
+    const js = document.getElementById('join-screen');
+    const ls = document.getElementById('lobby-screen');
+    if (js && js.style) js.style.display = 'none';
+    if (ls && ls.style) ls.style.display = 'block';
+}
+
+function showGame() {
+    const ls = document.getElementById('lobby-screen');
+    const gs = document.getElementById('game-screen');
+    if (ls && ls.style) ls.style.display = 'none';
+    if (gs && gs.style) gs.style.display = 'block';
+}
+
+function updateScore() {
+    const scoreEl = document.getElementById('score');
+    if (scoreEl) scoreEl.textContent = String(players[playerId]?.score || 0);
+}
+
+function renderPlayers() {
+    const arena = document.getElementById('arena');
+    if (!arena) return;
+    const existing = {};
+    arena.querySelectorAll('.player').forEach(el => {
+        const id = el.getAttribute('data-id');
+        if (id) existing[id] = el;
+    });
+
+    Object.entries(players).forEach(([id, p]) => {
+        let el = existing[id];
+        if (!el) {
+            el = document.createElement('div');
+            el.className = 'player';
+            el.setAttribute('data-id', id);
+            el.title = p.name || '';
+            arena.appendChild(el);
+        }
+        el.style.backgroundColor = p.color || 'white';
+        el.style.transform = `translate(${p.x || 0}px, ${p.y || 0}px)`;
+        if (String(id) === String(playerId)) el.classList.add('you'); else el.classList.remove('you');
+        delete existing[id];
+    });
+
+    Object.keys(existing).forEach(id => existing[id].remove());
+}
+
+function renderCoins() {
+    const arena = document.getElementById('arena');
+    if (!arena) return;
+    const existing = {};
+    arena.querySelectorAll('.coin').forEach(el => {
+        const id = el.getAttribute('data-id');
+        if (id) existing[id] = el;
+    });
+
+    coins.forEach(c => {
+        let el = existing[c.id];
+        if (!el) {
+            el = document.createElement('div');
+            el.className = 'coin';
+            el.setAttribute('data-id', c.id);
+            arena.appendChild(el);
+        }
+        el.style.left = `${c.x}px`;
+        el.style.top = `${c.y}px`;
+        delete existing[c.id];
+    });
+
+    Object.keys(existing).forEach(id => existing[id].remove());
+}
+
+function startTimer() {
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        if (!paused) {
+            gameTime--;
+            const timerEl = document.getElementById('timer');
+            if (timerEl) timerEl.textContent = String(gameTime);
+            if (gameTime <= 0) endGame();
+        }
+    }, 1000);
+}
+
+function endGame() {
+    clearInterval(timerInterval);
+    document.getElementById('soundEnd')?.play();
+    const sorted = Object.values(players).sort((a, b) => (b.score || 0) - (a.score || 0));
+    const list = document.getElementById('resultList');
+    if (list) {
+        list.innerHTML = '';
+        sorted.forEach((p, i) => {
+            const li = document.createElement('li');
+            li.textContent = `${i + 1}. ${p.name} - ${p.score || 0} points`;
+            li.style.color = p.color || 'white';
+            list.appendChild(li);
+        });
+    }
+    document.getElementById('result-screen')?.style && (document.getElementById('result-screen').style.display = 'block');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const joinBtn = document.getElementById('joinBtn');
+    const startBtn = document.getElementById('startBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const resumeBtn = document.getElementById('resumeBtn');
+    const quitBtn = document.getElementById('quitBtn');
+    const playerNameInput = document.getElementById('playerName');
+
+    joinBtn?.addEventListener('click', () => {
+        playerName = playerNameInput?.value || '';
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({
+            type: 'join',
+            id: playerId,
+            name: playerName
+        }));
+    });
+
+    startBtn?.addEventListener('click', () => {
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type: 'startGame', id: playerId}));
+    });
+    pauseBtn?.addEventListener('click', () => {
+        paused = true;
+        document.getElementById('menu')?.style && (document.getElementById('menu').style.display = 'block');
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({
+            type: 'pause',
+            id: playerId,
+            name: playerName
+        }));
+    });
+    resumeBtn?.addEventListener('click', () => {
+        paused = false;
+        document.getElementById('menu')?.style && (document.getElementById('menu').style.display = 'none');
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({
+            type: 'resume',
+            id: playerId,
+            name: playerName
+        }));
+    });
+    quitBtn?.addEventListener('click', () => {
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({
+            type: 'quit',
+            id: playerId,
+            name: playerName
+        }));
+        location.reload();
+    });
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key.startsWith('Arrow')) {
+            keys[e.key] = true;
+            e.preventDefault();
+        }
+    }, {passive: false});
+    window.addEventListener('keyup', (e) => {
+        if (e.key.startsWith('Arrow')) {
+            keys[e.key] = false;
+            e.preventDefault();
+        }
+    }, {passive: false});
+
+    setInterval(() => {
+        if (paused) return;
+        const p = players[playerId];
+        if (!p) return;
+        let dx = 0, dy = 0;
+        if (keys['ArrowUp']) dy -= SPEED;
+        if (keys['ArrowDown']) dy += SPEED;
+        if (keys['ArrowLeft']) dx -= SPEED;
+        if (keys['ArrowRight']) dx += SPEED;
+        if (dx !== 0 || dy !== 0) {
+            p.x = Math.max(0, Math.min(800 - 30, p.x + dx));
+            p.y = Math.max(0, Math.min(600 - 30, p.y + dy));
+            const myEl = document.querySelector(`.player[data-id="${playerId}"]`);
+            if (myEl) myEl.style.transform = `translate(${p.x}px, ${p.y}px)`;
+            if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({
+                type: 'move',
+                id: playerId,
+                x: p.x,
+                y: p.y
+            }));
+            checkPickup();
+        }
+    }, 1000 / MOVE_FPS);
+
+});
+
+function playCoinSound() {
+    const base = document.getElementById('soundCoin');
+    try {
+        if (base) {
+            const a = base.cloneNode(true);
+            a.play().catch(() => { /* игнорируем ошибки autoplay */
+            });
+        } else {
+            const a = new Audio('audio/coin.mp3');
+            a.play().catch(() => {
+            });
+        }
+    } catch (e) {
+        console.warn('playCoinSound failed', e);
+    }
+}
+
+function checkPickup() {
+    const p = players[playerId];
+    if (!p) return;
+    coins.slice().forEach(c => {
+        if (Math.abs(p.x - c.x) < 20 && Math.abs(p.y - c.y) < 20) {
+            const coinEl = document.querySelector(`.coin[data-id="${c.id}"]`);
+            if (coinEl) {
+                coinEl.classList.add('picked');
+                setTimeout(() => coinEl.remove(), 300);
+            }
+            playCoinSound();
+            if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({
+                type: 'pickup',
+                id: playerId,
+                coinId: c.id
+            }));
+        }
+    });
+}
