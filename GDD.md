@@ -1,134 +1,136 @@
-# web-game multi-player
-
-## game
-- multiplayer, up to 4 players
-- online
-- real-time
-- lead player
-  - pause, restart, quit
-  - accepts players
-- players
-  - join
-  - name
-- scoring system
-- lives
-- winner
-- timer
-- main menu lobby
-
-## tech stack
-- html, DOM elements
-- css
-- js
-
-### forbidden
-- canvas
-
-### requirements
-- 60 FPS
-- use Performance Tool to monitor performance
-- use layers to optimize rendering performance
-- use requestAnimationFrame to animate
-- available from any browser by URL, online from internet
-- real-time
-
-## extra
-- keyboard controls
-- sound effects
-
 # Game Design Document: DOM Zombie Shooter
 
-## 1\. Общее видение (Концепция)
+## 1\. High Concept
 
-- **Название:** DOM Zombie Shooter (рабочее) 
-- **Жанр:** Top-Down Arena Shooter 
-- **Платформа:** Web (браузер)
-- **Ключевая особенность:** Игра использует исключительно DOM-элементы для рендеринга, `<canvas>` запрещен.
-- **Краткое описание:** 4 игрока сражаются на арене друг с другом и с волнами зомби. Основная цель — набрать как можно больше золота и выжить в течение 3 минут. Если после 3 минут остаются выжившие, запускается режим "Последний выживший" с бесконечными волнами зомби.
-
-## 2\. Игровые механики
-
-### 2.1. Основные механики
-
--   **Перемещение:** Игроки управляют своими персонажами в 8 направлениях (WASD + диагонали).
--   **Стрельба:** Игроки могут стрелять в направлении курсора мыши.
--   **Здоровье и броня:** У каждого игрока есть 3 жизни и до 3 единиц брони. Выстрел от другого игрока сначала снимает броню, затем жизни.
--   **Респаун:** После смерти игрок возрождается в своем стартовом углу с 10-секундной блокировкой движения.
--   **Подбираемые предметы:** На карте случайным образом появляются ящики с патронами, броня и сундуки с золотом.
-
-
-### 2.2. Игровые сущности (Entities)
-
--   **Игрок:**
-    -   **Жизни:** 3
-    -   **Броня:** 0 (максимум 3)
-    -   **Патроны:** 10 (начальные)
-    -   **Золото:** 0 (начальное)
-    -   **Действия:** Двигаться, стрелять.
-
--   **Зомби (Бонус):**
-    -   **Жизни:** 1 (увеличивается с каждой волной в режиме "атаки роя")
-    -   **Поведение:** Появляется с края карты, выбирает ближайшего игрока как цель и преследует его. Не меняет цель, пока цель или сам зомби не умрет.
-    -   **Атака:** При контакте с игроком обездвиживает его на 3 секунды. Если за это время игрок не убивает зомби, он теряет 1 жизнь (атака игнорирует броню).
-
--   **Снаряд (Пуля):**
-    -   Летит от игрока в направлении курсора.
-    -   Исчезает при столкновении с другим игроком, зомби или границей карты.
-    -   Наносит 1 урон (снимает 1 броню или 1 жизнь).
-
--   **Подбираемые предметы (Pickups):**
-    -   **Ящик с патронами:** +30 патронов.
-    -   **Броня:** +1 к броне (не превышая максимум).
-    -   **Сундук с золотом:** +N золота (от 1 до 100).
-
-
-## 3\. Игровой цикл (Game Loop)
-
-1.  **Лобби:** Игроки подключаются, вводят имена. Хост (создатель игры) запускает матч.
-2.  **Начало раунда:** Таймер устанавливается на 3 минуты. Игроки появляются в углах карты.
-3.  **Основная фаза (3 минуты):**
-    -   Игроки перемещаются, стреляют, собирают предметы.
-    -   На карте появляются новые предметы.
-    -   (Бонус) Каждые 30 секунд появляются 2 зомби.
-
-4.  **Конец раунда:**
-    -   **Если 3 минуты истекли и >1 игрока живы:** Запускается режим "Атака роя зомби". Цель — остаться последним выжившим. Золото больше не имеет значения.
-    -   **Если в любой момент остался только 1 игрок:** Этот игрок объявляется победителем.
-    -   **Если 3 минуты истекли и <=1 игрока живы:** Побеждает тот, кто выжил и у кого больше золота.
-
-
-## 4\. Техническая спецификация (Предварительная)
-
--   **Фронтенд:** React, TypeScript.
--   **Бэкенд:** Node.js, TypeScript.
--   **Сетевое взаимодействие:** WebSocket.
--   **Архитектура:** Клиент-Сервер (Выделенный сервер).
--   **Источник правды (Source of Truth):** Сервер. Состояние игры хранится в RAM сервера.
-
-### 4.1 мировые координаты и адаптивная отрисовка.
-
-У нас есть виртуальная карта размером, например, 1000x1000 единиц. Все объекты на карте (игроки, зомби, предметы) имеют свои координаты (x,y) внутри этой системы. Игроки всегда отправляют и получают координаты в этих мировых единицах.
-А уже на стороне клиента, в браузере, мы делаем адаптивную отрисовку. Клиент знает размер своего экрана и переводит мировые координаты в пиксели, проценты или другие единицы, чтобы правильно отобразить всё на своём экране. Например, если ширина карты 1000 мировых единиц, а ширина экрана 1920 пикселей, то 1 мировая единица = 1.92 пикселя.
-Это называется **разделение логики и представления**. Сервер отвечает за игровую логику (где кто находится в мировых координатах), а клиент — за то, как это показать на конкретном устройстве.
-
-
-## 5\. Структуры данных (TypeScript Interfaces) - Work in Progress
-
-### 5.1 Сущности
-
-Это "чертежи" наших данных. Сервер и клиент будут обмениваться объектами именно такой структуры.
-
-```typescript
-<span class="selected">// Общее состояние игры, которое сервер рассылает всем клиентам
+-   **Game Title:** DOM Zombie Shooter (Working Title)
     
+-   **Genre:** Top-Down Arena Shooter
+    
+-   **Platform:** Web Browser
+    
+-   **Target Audience:** Casual players looking for a quick, competitive multiplayer experience.
+    
+-   **Unique Selling Proposition (USP):** A real-time multiplayer shooter rendered entirely with DOM elements, pushing the boundaries of what's possible in a browser without using `<canvas>`.
+    
+
+## 2\. Game Overview
+
+### 2.1. Core Concept
+
+Up to 4 players battle in a shared arena against each other and periodic waves of zombies. The primary objective is to collect the most gold and survive for a 3-minute round. If more than one player remains after the timer expires, a "Sudden Death" mode triggers with endless zombie waves until only one player is left standing.
+
+### 2.2. Game Flow
+
+1.  **Lobby:** Players join a game session via a URL, enter their unique names, and wait for the host to start the match.
+    
+2.  **Round Start (3:00):** Players spawn in the corners of the map. The main phase begins.
+    
+3.  **Main Phase:** Players move, shoot, collect items, and fight zombies. The goal is to accumulate gold and eliminate opponents.
+    
+4.  **Round End:**
+    
+    -   **Timer Expires (>1 Player):** Sudden Death mode begins. Gold no longer matters; the goal is to be the last one standing against infinite zombie hordes.
+        
+    -   **One Player Remains:** The last surviving player is declared the winner.
+        
+    -   **Timer Expires (<=1 Player):** The winner is the surviving player with the most gold.
+        
+
+## 3\. Core Mechanics
+
+### 3.1. Player Actions
+
+-   **Movement:** 8-directional movement (WASD + diagonals).
+    
+-   **Shooting:** Players shoot in the direction of their mouse cursor.
+    
+-   **Interaction:** Players automatically pick up items by moving over them.
+    
+
+### 3.2. Combat System
+
+-   **Health & Armor:** Each player has 3 lives and can hold up to 3 armor points. Damage from other players removes armor first, then lives.
+    
+-   **Respawn:** Upon death, a player respawns in their starting corner after a 10-second delay, during which they cannot move or act.
+    
+-   **Zombies:** Zombies are a secondary threat. They target the nearest player and attempt to immobilize them. Direct contact with a zombie for 3 seconds results in the loss of 1 life, bypassing armor.
+    
+
+## 4\. Game Entities
+
+### 4.1. Player
+
+-   **Lives:** 3
+    
+-   **Armor:** 0 (Max: 3)
+    
+-   **Ammo:** 10 (Starts with)
+    
+-   **Gold:** 0 (Starts with)
+    
+-   **State:** Alive, Dead, Spawning.
+    
+
+### 4.2. Zombie (Bonus Threat)
+
+-   **Lives:** 1 (Scales with waves in Sudden Death)
+    
+-   **Behavior:** Spawns at the edge of the map, locks onto the nearest player, and pursues them. Does not switch targets.
+    
+-   **Attack:** On contact, immobilizes the player for 3 seconds. If the zombie is not killed within this time, the player loses 1 life (ignores armor).
+    
+
+### 4.3. Projectile (Bullet)
+
+-   **Behavior:** Travels in a straight line from the player towards the cursor position at the time of firing.
+    
+-   **Collision:** Despawns upon hitting a player, zombie, or map boundary.
+    
+-   **Damage:** 1 point (removes 1 armor or 1 life).
+    
+
+### 4.4. Pickups
+
+-   **Ammo Crate:** Grants +30 ammo.
+    
+-   **Armor Plate:** Grants +1 armor (up to the maximum of 3).
+    
+-   **Gold Chest:** Grants a random amount of gold (1-100).
+    
+
+## 5\. Technical Specification
+
+-   **Frontend:** HTML / CSS / JavaScript (TypeScript)
+    
+-   **Backend:** Node.js with TypeScript
+    
+-   **Networking:** WebSockets
+    
+-   **Architecture:** Authoritative Server (`Server is the Source of Truth`).
+    
+-   **Performance Target:** 60 FPS, jank-free experience.
+    
+
+### 5.1. World Coordinates & Rendering
+
+The game uses a virtual coordinate system (e.g., 1000x1000 units) on the server to track all entity positions. The client is responsible for translating these world coordinates into appropriate screen coordinates (pixels, percentages) for responsive rendering on any device. This separates game logic from presentation.
+
+> _\[Mentor's Note: This is a crucial and excellent design choice. It's the professional way to handle multi-resolution displays and keep the server logic clean.\]_
+
+## 6\. Data Structures (TypeScript Interfaces)
+
+> _\[Mentor's Note: These interfaces are a great start. They clearly define the "blueprints" for our game objects. I've added a `status` field to the Player, which can simplify logic for handling states like respawning or being stunned.\]_
+
+```
+<span class="selected">// The complete snapshot of the game world, sent from server to clients.
 interface GameState {
   gameStatus: 'lobby' | 'in-progress' | 'sudden-death' | 'finished';
-  gameTime: number; // Оставшееся время в секундах
+  timer: number; // Time remaining in seconds
   players: { [id: string]: Player };
   bullets: { [id: string]: Bullet };
   items: { [id: string]: Item };
   zombies: { [id: string]: Zombie };
-  winner?: string; // ID победившего игрока
+  winnerId?: string;
 }
 
 interface Vector2D {
@@ -140,13 +142,14 @@ interface Player {
   id: string;
   name: string;
   position: Vector2D;
-  rotation: number; // Угол в радианах
+  rotation: number; // Angle in radians for aiming
   lives: number;
   armor: number;
   ammo: number;
   gold: number;
   isAlive: boolean;
-  respawnTimer: number; // &gt;0 если игрок мертв и ждет возрождения
+  status: 'active' | 'spawning' | 'stunned';
+  respawnTimer: number; // Countdown &gt; 0 if spawning
 }
 
 interface Bullet {
@@ -160,68 +163,76 @@ interface Item {
   id: string;
   type: 'ammo' | 'armor' | 'gold';
   position: Vector2D;
-  value?: number; // для золота
+  value?: number; // For gold chests
 }
 
 interface Zombie {
   id: string;
   position: Vector2D;
-  lives: number;
+  health: number;
   targetId: string;
 }
-
 </span><br class="ProseMirror-trailingBreak">
 ```
 
+## 7\. Network Protocol (WebSocket API)
 
+The client sends lightweight user inputs to the server. The server processes these inputs, simulates the game world, and broadcasts the authoritative `GameState` back to all clients at a fixed tick rate (e.g., 20-30 times per second).
 
+> _\[Mentor's Note: This client-input -> server-state model is the right way to build a secure and synchronized real-time game. It prevents cheating and ensures everyone sees the same reality.\]_
 
-## 6\. Сетевой протокол (WebSocket API) - Work in Progress
+### 7.1. Client to Server (C2S) Events
 
-Описывает, какими "словами" (сообщениями) клиент и сервер общаются друг с другом. Каждое сообщение имеет тип и полезную нагрузку (payload).
-
-Клиенты будут отправлять только **свои действия**, а сервер будет выступать как **источник правды** (Source of Truth), который рассчитывает состояние мира и рассылает его всем. Таким образом, у всех игроков всегда будет синхронизированная, одинаковая "картинка".
-
-1. **Клиент не отправляет "сущность" целиком**. Это слишком много данных. Вместо этого он отправляет только ввод игрока (player input): "Я нажал W и D, и нажал левую кнопку мыши". Это очень лёгкие по весу сообщения. Клиент отправляет их серверу как можно чаще (например, 30-60 раз в секунду).
-2. **Сервер получает ввод от всех игроков**. Сервер не обрабатывает каждое сообщение сразу. Он собирает все новые сообщения от всех игроков за короткий промежуток времени (например, 10-20 мс).
-3. **Сервер рассчитывает новое состояние мира**. За один "тик" или "кадр" сервера, он:
-    - Смотрит, какие действия совершили все игроки.
-    - Считает, куда они передвинулись.
-    - Проверяет столкновения.
-    - Обновляет позиции всех объектов.
-    - Рассчитывает новое состояние игры.
-
-4. **Сервер отправляет полное состояние мира**. После всех расчётов, сервер рассылает одно сообщение всем игрокам. Это сообщение содержит полное состояние мира (GameState из твоего GDD.md): где находится каждый игрок, где пули, сколько у кого здоровья и т.д. Клиент просто берёт эти данные и рисует картинку.
-
-### 6.1. Сообщения от Клиента к Серверу (C2S)
-
--   **`join_game`**: Отправляется один раз при подключении.
+-   **`join_game`**: Sent once to enter the lobby.
+    
     -   **Payload:** `{ name: string }`
--   **`player_input`**: Отправляется на каждом кадре, когда игрок совершает действие.
-    -   **Payload:** `{ keys: string[], mouseAngle: number }` (например, `keys: ['w', 'a']`)
--   **`player_shoot`**: Отправляется при клике мыши.
+        
+-   **`player_input`**: Sent repeatedly at a fixed interval (e.g., 30 times/sec) while the player is active.
+    
+    -   **Payload:** `{ keys: string[], mouseAngle: number }` (e.g., `keys: ['w', 'a']`)
+        
+-   **`player_shoot`**: Sent on a mouse click.
+    
     -   **Payload:** `{ angle: number }`
+        
+-   **`start_game`**: Sent by the host player to begin the match.
+    
+    -   **Payload:** `{}`
+        
 
+### 7.2. Server to Client (S2C) Events
 
-### 6.2. Сообщения от Сервера к Клиенту (S2C)
-
--   **`game_state`**: Основное сообщение. Отправляется ~20-30 раз в секунду всем игрокам, содержит полное состояние игрового мира.
-    -   **Payload:** `GameState` (см. раздел 5)
--   **`player_joined`**: Информационное сообщение для всех, когда новый игрок зашел в лобби.
+-   **`init`**: The very first message to a new client, assigning them their unique ID.
+    
+    -   **Payload:** `{ playerId: string, initialState: GameState }`
+        
+-   **`game_state`**: The primary update message, broadcast to all players.
+    
+    -   **Payload:** `GameState`
+        
+-   **`player_joined`**: Informs all clients in the lobby about a new player.
+    
     -   **Payload:** `{ id: string, name: string }`
--   **`player_left`**: Информационное сообщение для всех, когда игрок отключается.
+        
+-   **`player_left`**: Informs all clients when a player disconnects.
+    
     -   **Payload:** `{ id: string }`
--   **`init`**: Первое сообщение, которое получает клиент. Содержит его уникальный ID.
-    -   **Payload:** `{ playerId: string }`
+        
 
-## MVP
-- Сервер, к которому можно подключиться.
-  - **Присоединение**: Игрок заходит по URL, вводит имя (уникальное).
-  - **Лидер**: Один игрок становится "хостом" (лидером).
-  - **Старт**: Лидер может начать игру, когда подключилось от 2 до 4 игроков. Это критично, так как это первая "серверная" логика, которую мы будем писать.
-- Игроки могут присоединиться к игре и получить уникальное имя.
-- Игроки появляются на карте в виде div-ов.
-- Игроки могут двигаться.
-  - **Управление**: Игроки должны двигаться с помощью клавиатуры (это обязательное требование из TEST.md в секции Extra, но для MVP это must-have).
-  - **Плавность**: Движение должно быть "jank-free" и работать на 60 FPS. Это значит, что нам нужно правильно настроить requestAnimationFrame на клиенте и продумать, как часто сервер будет отправлять обновления.
-- Сервер получает новые координаты и рассылает их всем остальным игрокам.
+## 8\. Minimum Viable Product (MVP)
+
+-   A functional server that clients can connect to via a URL.
+    
+-   **Lobby System:** Players can join, set a unique name, and see other players in the lobby.
+    
+-   **Host Controls:** The first player to join becomes the host and can start the game for 2-4 players.
+    
+-   **Core Gameplay:**
+    
+    -   Players spawn on the map as `div` elements.
+        
+    -   Players can move using keyboard inputs.
+        
+    -   Movement is smooth (60 FPS, using `requestAnimationFrame`).
+        
+    -   The server correctly processes movement inputs and broadcasts the updated positions to all clients in real-time.
