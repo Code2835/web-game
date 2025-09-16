@@ -49,6 +49,11 @@ setInterval(() => {
     broadcast({type: 'coins', coins});
 }, 2000);
 
+// Добавим более частую синхронизацию состояния всех игроков
+setInterval(() => {
+    broadcast({type: 'players', players});
+}, 100); // 10 раз в секунду
+
 function broadcast(msg) {
     const data = JSON.stringify(msg);
     wss.clients.forEach(c => c.readyState === WebSocket.OPEN && c.send(data));
@@ -108,7 +113,7 @@ wss.on('connection', ws => {
             if (players[data.id]) {
                 players[data.id].x = data.x;
                 players[data.id].y = data.y;
-                broadcast({type: 'players', players});
+                // Убираем broadcast отсюда, так как у нас есть периодическая синхронизация
             }
             return;
         }

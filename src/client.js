@@ -6,6 +6,7 @@ let coins = [];
 let gameTime = 60;
 let timerInterval = null;
 let paused = false;
+let networkUpdateInterval = null;
 
 if (LOG) console.log('client.js loaded', {href: location.href, playerId});
 
@@ -69,6 +70,7 @@ function handleMessage(data) {
         showGame();
         renderCoins();
         startTimer();
+        startNetworkUpdates();
         return;
     }
     if (data.type === 'players') {
@@ -116,6 +118,10 @@ function renderPlayers() {
     arena.querySelectorAll('.player').forEach(el => {
         const id = el.getAttribute('data-id');
         if (id) existing[id] = el;
+        // Для интерполяции сохраняем текущие позиции
+        if (players[id] && String(id) !== String(playerId)) {
+            players[id].lerpData = { fromX: players[id].x, fromY: players[id].y, toX: players[id].x, toY: players[id].y, time: 0 };
+        }
     });
 
     Object.entries(players).forEach(([id, p]) => {
@@ -127,8 +133,14 @@ function renderPlayers() {
             el.title = p.name || '';
             arena.appendChild(el);
         }
+        // Для других игроков обновляем цель интерполяции
+        if (String(id) !== String(playerId) && p.lerpData) {
+            p.lerpData.fromX = p.x;
+            p.lerpData.fromY = p.y;
+            p.lerpData.toX = p.x;
+            p.lerpData.toY = p.y;
+        }
         el.style.backgroundColor = p.color || 'white';
-        el.style.transform = `translate(${p.x || 0}px, ${p.y || 0}px)`;
         if (String(id) === String(playerId)) el.classList.add('you'); else el.classList.remove('you');
         delete existing[id];
     });
@@ -175,6 +187,7 @@ function startTimer() {
 
 function endGame() {
     clearInterval(timerInterval);
+    clearInterval(networkUpdateInterval);
     document.getElementById('soundEnd')?.play();
     const sorted = Object.values(players).sort((a, b) => (b.score || 0) - (a.score || 0));
     const list = document.getElementById('resultList');
@@ -190,8 +203,25 @@ function endGame() {
     document.getElementById('result-screen')?.style && (document.getElementById('result-screen').style.display = 'block');
 }
 
+function startNetworkUpdates() {
+    clearInterval(networkUpdateInterval);
+    // Отправляем наше состояние на сервер 10 раз в секунду
+    networkUpdateInterval = setInterval(() => {
+        const p = players[playerId];
+        if (p && ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'move',
+                id: playerId,
+                x: p.x,
+                y: p.y
+            }));
+        }
+    }, 100); // 100ms = 10 updates per second
+}
+
 function gameLoop() {
     if (!paused) {
+        // Локальное предсказание движения для нашего игрока
         const p = players[playerId];
         if (p) {
             let dx = 0, dy = 0;
@@ -199,21 +229,28 @@ function gameLoop() {
             if (keys['ArrowDown']) dy += SPEED;
             if (keys['ArrowLeft']) dx -= SPEED;
             if (keys['ArrowRight']) dx += SPEED;
-
+            
             if (dx !== 0 || dy !== 0) {
                 p.x = Math.max(0, Math.min(800 - 30, p.x + dx));
                 p.y = Math.max(0, Math.min(600 - 30, p.y + dy));
-                const myEl = document.querySelector(`.player[data-id="${playerId}"]`);
-                if (myEl) myEl.style.transform = `translate(${p.x}px, ${p.y}px)`;
-                if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({
-                    type: 'move',
-                    id: playerId,
-                    x: p.x,
-                    y: p.y
-                }));
                 checkPickup();
             }
         }
+
+        // Обновление позиций всех игроков на экране в каждом кадре
+        Object.entries(players).forEach(([id, p]) => {
+            const el = document.querySelector(`.player[data-id="${id}"]`);
+            if (el) {
+                // Для нашего игрока просто применяем позицию
+                if (String(id) === String(playerId)) {
+                    el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+                } else {
+                    // Для других игроков используем интерполяцию (пока простая, можно усложнить)
+                    // Это сгладит их движение между обновлениями от сервера
+                    el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+                }
+            }
+        });
     }
     requestAnimationFrame(gameLoop);
 }
