@@ -40,7 +40,6 @@ function initWS() {
 initWS();
 
 const keys = {};
-const MOVE_FPS = 30;
 const SPEED = 3;
 
 function handleMessage(data) {
@@ -191,6 +190,34 @@ function endGame() {
     document.getElementById('result-screen')?.style && (document.getElementById('result-screen').style.display = 'block');
 }
 
+function gameLoop() {
+    if (!paused) {
+        const p = players[playerId];
+        if (p) {
+            let dx = 0, dy = 0;
+            if (keys['ArrowUp']) dy -= SPEED;
+            if (keys['ArrowDown']) dy += SPEED;
+            if (keys['ArrowLeft']) dx -= SPEED;
+            if (keys['ArrowRight']) dx += SPEED;
+
+            if (dx !== 0 || dy !== 0) {
+                p.x = Math.max(0, Math.min(800 - 30, p.x + dx));
+                p.y = Math.max(0, Math.min(600 - 30, p.y + dy));
+                const myEl = document.querySelector(`.player[data-id="${playerId}"]`);
+                if (myEl) myEl.style.transform = `translate(${p.x}px, ${p.y}px)`;
+                if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({
+                    type: 'move',
+                    id: playerId,
+                    x: p.x,
+                    y: p.y
+                }));
+                checkPickup();
+            }
+        }
+    }
+    requestAnimationFrame(gameLoop);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const joinBtn = document.getElementById('joinBtn');
     const startBtn = document.getElementById('startBtn');
@@ -251,30 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, {passive: false});
 
-    setInterval(() => {
-        if (paused) return;
-        const p = players[playerId];
-        if (!p) return;
-        let dx = 0, dy = 0;
-        if (keys['ArrowUp']) dy -= SPEED;
-        if (keys['ArrowDown']) dy += SPEED;
-        if (keys['ArrowLeft']) dx -= SPEED;
-        if (keys['ArrowRight']) dx += SPEED;
-        if (dx !== 0 || dy !== 0) {
-            p.x = Math.max(0, Math.min(800 - 30, p.x + dx));
-            p.y = Math.max(0, Math.min(600 - 30, p.y + dy));
-            const myEl = document.querySelector(`.player[data-id="${playerId}"]`);
-            if (myEl) myEl.style.transform = `translate(${p.x}px, ${p.y}px)`;
-            if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({
-                type: 'move',
-                id: playerId,
-                x: p.x,
-                y: p.y
-            }));
-            checkPickup();
-        }
-    }, 1000 / MOVE_FPS);
-
+    requestAnimationFrame(gameLoop);
 });
 
 function playCoinSound() {
