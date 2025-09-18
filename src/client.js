@@ -6,6 +6,7 @@ let coins = [];
 let gameTime = 60;
 let timerInterval = null;
 let paused = false;
+let pickedCoins = new Set();
 
 if (LOG) console.log('client.js loaded', {href: location.href, playerId});
 
@@ -109,6 +110,10 @@ function handleMessage(data) {
     }
     if (data.type === 'coins') {
         coins = data.coins || [];
+        const coinIds = new Set(coins.map(c => c.id));
+        pickedCoins.forEach(id => {
+            if (!coinIds.has(id)) pickedCoins.delete(id);
+        });
         renderCoins();
         return;
     }
@@ -346,13 +351,9 @@ function checkPickup() {
     const p = players[playerId];
     if (!p) return;
     coins.slice().forEach(c => {
-        if (Math.abs(p.x - c.x) < 20 && Math.abs(p.y - c.y) < 20) {
-            const coinEl = document.querySelector(`.coin[data-id="${c.id}"]`);
-            if (coinEl) {
-                coinEl.classList.add('picked');
-                setTimeout(() => coinEl.remove(), 300);
-            }
+        if (Math.abs(p.x - c.x) < 20 && Math.abs(p.y - c.y) < 20 && !pickedCoins.has(c.id)) {
             playCoinSound();
+            pickedCoins.add(c.id);
             if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({
                 type: 'pickup',
                 id: playerId,

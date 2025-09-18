@@ -116,7 +116,7 @@ wss.on('connection', ws => {
         if (data.type === 'pickup') {
             coins = coins.filter(c => c.id !== data.coinId);
             if (players[data.id]) players[data.id].score++;
-            spawnCoin();
+            if (coins.length < 10) spawnCoin();
             broadcast({type: 'players', players});
             broadcast({type: 'coins', coins});
             return;
