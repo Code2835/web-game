@@ -44,7 +44,22 @@ const SPEED = 3;
 
 function handleMessage(data) {
     if (data.type === 'lobby') {
-        players = data.players || {};
+        Object.entries(data.players || {}).forEach(([id, p]) => {
+            if (!players[id]) {
+                players[id] = {...p, x: p.x, y: p.y, targetX: p.x, targetY: p.y};
+            } else {
+                players[id].name = p.name;
+                players[id].color = p.color;
+                players[id].score = p.score;
+                if (players[id].x === undefined) players[id].x = p.x;
+                if (players[id].y === undefined) players[id].y = p.y;
+                players[id].targetX = p.x;
+                players[id].targetY = p.y;
+            }
+        });
+        Object.keys(players).forEach(id => {
+            if (!(id in (data.players || {}))) delete players[id];
+        });
         showLobby();
         renderPlayers();
         const startBtn = document.getElementById('startBtn');
@@ -72,7 +87,22 @@ function handleMessage(data) {
         return;
     }
     if (data.type === 'players') {
-        players = data.players || {};
+        Object.entries(data.players || {}).forEach(([id, p]) => {
+            if (!players[id]) {
+                players[id] = {...p, x: p.x, y: p.y, targetX: p.x, targetY: p.y};
+            } else {
+                if (id === playerId) {
+                    players[id].score = p.score;
+                } else {
+                    players[id].targetX = p.x;
+                    players[id].targetY = p.y;
+                    players[id].score = p.score;
+                }
+            }
+        });
+        Object.keys(players).forEach(id => {
+            if (!(id in (data.players || {}))) delete players[id];
+        });
         renderPlayers();
         updateScore();
         return;
@@ -203,6 +233,8 @@ function gameLoop() {
             if (dx !== 0 || dy !== 0) {
                 p.x = Math.max(0, Math.min(800 - 30, p.x + dx));
                 p.y = Math.max(0, Math.min(600 - 30, p.y + dy));
+                p.targetX = p.x;
+                p.targetY = p.y;
                 const myEl = document.querySelector(`.player[data-id="${playerId}"]`);
                 if (myEl) myEl.style.transform = `translate(${p.x}px, ${p.y}px)`;
                 if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({
@@ -214,8 +246,20 @@ function gameLoop() {
                 checkPickup();
             }
         }
+        Object.entries(players).forEach(([id, p]) => {
+            if (id !== playerId) {
+                if (typeof p.x === 'number' && typeof p.targetX === 'number') {
+                    p.x += (p.targetX - p.x) * 0.2;
+                }
+                if (typeof p.y === 'number' && typeof p.targetY === 'number') {
+                    p.y += (p.targetY - p.y) * 0.2;
+                }
+                const el = document.querySelector(`.player[data-id="${id}"]`);
+                if (el) el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+            }
+        });
+        requestAnimationFrame(gameLoop);
     }
-    requestAnimationFrame(gameLoop);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -286,7 +330,7 @@ function playCoinSound() {
     try {
         if (base) {
             const a = base.cloneNode(true);
-            a.play().catch(() => { /* игнорируем ошибки autoplay */
+            a.play().catch(() => {
             });
         } else {
             const a = new Audio('audio/coin.mp3');
