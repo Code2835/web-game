@@ -12,12 +12,22 @@ app.use(express.static(path.join(__dirname, '..', 'src')));
 let players = {};
 let coins = [];
 let leaderId = null;
+let frozenCoinTimer = null;
 
 function spawnCoin() {
     coins.push({
         id: Date.now() + Math.floor(Math.random() * 1000),
         x: Math.floor(Math.random() * 760) + 10,
         y: Math.floor(Math.random() * 560) + 10
+    });
+}
+
+function spawnFrozenCoin() {
+    coins.push({
+        id: 'frozen-' + (Date.now() + Math.floor(Math.random() * 1000)),
+        x: Math.floor(Math.random() * 760) + 10,
+        y: Math.floor(Math.random() * 560) + 10,
+        type: 'frozen'
     });
 }
 
@@ -48,6 +58,15 @@ setInterval(() => {
     if (coins.length < 10) spawnCoin();
     broadcast({type: 'coins', coins});
 }, 2000);
+
+if (!frozenCoinTimer) {
+    frozenCoinTimer = setInterval(() => {
+        if (!coins.some(c => c.type === 'frozen')) {
+            spawnFrozenCoin();
+            broadcast({type: 'coins', coins});
+        }
+    }, 15000);
+}
 
 function broadcast(msg) {
     const data = JSON.stringify(msg);
@@ -86,14 +105,22 @@ wss.on('connection', ws => {
                 x: pos.x,
                 y: pos.y,
                 score: 0,
-                color: randomColor()
+                color: randomColor(),
+                frozenUntil: 0
             };
             try {
                 ws.send(JSON.stringify({type: 'lobby', players, leaderId}));
             } catch (e) {
                 console.warn('WS: failed to send lobby to new client', e);
             }
-            broadcast({type: 'players', players});
+            const playersWithFrozen = {};
+            for (const id in players) {
+                playersWithFrozen[id] = {
+                    ...players[id],
+                    frozenUntil: players[id].frozenUntil || 0
+                };
+            }
+            broadcast({type: 'players', players: playersWithFrozen});
             return;
         }
 
@@ -106,18 +133,45 @@ wss.on('connection', ws => {
 
         if (data.type === 'move') {
             if (players[data.id]) {
+                if (players[data.id].frozenUntil && players[data.id].frozenUntil > Date.now()) {
+                    return;
+                }
                 players[data.id].x = data.x;
                 players[data.id].y = data.y;
-                broadcast({type: 'players', players});
+                const playersWithFrozen = {};
+                for (const id in players) {
+                    playersWithFrozen[id] = {
+                        ...players[id],
+                        frozenUntil: players[id].frozenUntil || 0
+                    };
+                }
+                broadcast({type: 'players', players: playersWithFrozen});
             }
             return;
         }
 
         if (data.type === 'pickup') {
+            const coin = coins.find(c => c.id === data.coinId);
             coins = coins.filter(c => c.id !== data.coinId);
-            if (players[data.id]) players[data.id].score++;
+            if (coin && coin.type === 'frozen') {
+                const now = Date.now();
+                for (const id in players) {
+                    if (id !== data.id) {
+                        players[id].frozenUntil = now + 3000; // 3 seconds
+                    }
+                }
+            } else {
+                if (players[data.id]) players[data.id].score++;
+            }
             if (coins.length < 10) spawnCoin();
-            broadcast({type: 'players', players});
+            const playersWithFrozen = {};
+            for (const id in players) {
+                playersWithFrozen[id] = {
+                    ...players[id],
+                    frozenUntil: players[id].frozenUntil || 0
+                };
+            }
+            broadcast({type: 'players', players: playersWithFrozen});
             broadcast({type: 'coins', coins});
             return;
         }

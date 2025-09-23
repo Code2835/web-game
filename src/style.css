@@ -74,12 +74,17 @@ body {
 }
 
 .coin {
+    position: absolute;
+    z-index: 2;
     width: 20px;
     height: 20px;
-    position: absolute;
-    background: gold;
     border-radius: 50%;
+    background: gold;
     animation: coinSpawn 0.3s ease-out;
+}
+
+.frozen-coin {
+    background: #00eaff;
 }
 
 .coin.picked {
@@ -103,4 +108,10 @@ body {
 
 .score-bling {
     animation: scoreBling 0.3s ease-out;
+}
+
+.frozen-player {
+    opacity: 0.5;
+    filter: blur(1px) drop-shadow(0 0 8px #00eaff);
+    transition: opacity 0.2s, filter 0.2s;
 }

@@ -92,13 +92,12 @@ function handleMessage(data) {
             if (!players[id]) {
                 players[id] = {...p, x: p.x, y: p.y, targetX: p.x, targetY: p.y};
             } else {
-                if (id === playerId) {
-                    players[id].score = p.score;
-                } else {
-                    players[id].targetX = p.x;
-                    players[id].targetY = p.y;
-                    players[id].score = p.score;
-                }
+                players[id].targetX = p.x;
+                players[id].targetY = p.y;
+                players[id].score = p.score;
+                players[id].color = p.color;
+                players[id].name = p.name;
+                players[id].frozenUntil = p.frozenUntil || 0;
             }
         });
         Object.keys(players).forEach(id => {
@@ -165,6 +164,11 @@ function renderPlayers() {
         el.style.backgroundColor = p.color || 'white';
         el.style.transform = `translate(${p.x || 0}px, ${p.y || 0}px)`;
         if (String(id) === String(playerId)) el.classList.add('you'); else el.classList.remove('you');
+        if (p.frozenUntil && p.frozenUntil > Date.now()) {
+            el.classList.add('frozen-player');
+        } else {
+            el.classList.remove('frozen-player');
+        }
         delete existing[id];
     });
 
@@ -184,9 +188,11 @@ function renderCoins() {
         let el = existing[c.id];
         if (!el) {
             el = document.createElement('div');
-            el.className = 'coin';
+            el.className = c.type === 'frozen' ? 'coin frozen-coin' : 'coin';
             el.setAttribute('data-id', c.id);
             arena.appendChild(el);
+        } else {
+            el.className = c.type === 'frozen' ? 'coin frozen-coin' : 'coin';
         }
         el.style.left = `${c.x}px`;
         el.style.top = `${c.y}px`;
@@ -228,13 +234,15 @@ function endGame() {
 function gameLoop() {
     if (!paused) {
         const p = players[playerId];
+        const isFrozen = p && p.frozenUntil && p.frozenUntil > Date.now();
         if (p) {
             let dx = 0, dy = 0;
-            if (keys['ArrowUp']) dy -= SPEED;
-            if (keys['ArrowDown']) dy += SPEED;
-            if (keys['ArrowLeft']) dx -= SPEED;
-            if (keys['ArrowRight']) dx += SPEED;
-
+            if (!isFrozen) {
+                if (keys['ArrowUp']) dy -= SPEED;
+                if (keys['ArrowDown']) dy += SPEED;
+                if (keys['ArrowLeft']) dx -= SPEED;
+                if (keys['ArrowRight']) dx += SPEED;
+            }
             if (dx !== 0 || dy !== 0) {
                 p.x = Math.max(0, Math.min(800 - 30, p.x + dx));
                 p.y = Math.max(0, Math.min(600 - 30, p.y + dy));
@@ -242,6 +250,7 @@ function gameLoop() {
                 p.targetY = p.y;
                 const myEl = document.querySelector(`.player[data-id="${playerId}"]`);
                 if (myEl) myEl.style.transform = `translate(${p.x}px, ${p.y}px)`;
+                if (isFrozen) return;
                 if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({
                     type: 'move',
                     id: playerId,
@@ -263,6 +272,11 @@ function gameLoop() {
                 if (el) el.style.transform = `translate(${p.x}px, ${p.y}px)`;
             }
         });
+        const myEl = document.querySelector(`.player[data-id="${playerId}"]`);
+        if (myEl) {
+            if (isFrozen) myEl.classList.add('frozen-player');
+            else myEl.classList.remove('frozen-player');
+        }
         requestAnimationFrame(gameLoop);
     }
 }
@@ -315,12 +329,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     window.addEventListener('keydown', (e) => {
+        const p = players[playerId];
+        if (p && p.frozenUntil && p.frozenUntil > Date.now()) return;
         if (e.key.startsWith('Arrow')) {
             keys[e.key] = true;
             e.preventDefault();
         }
     }, {passive: false});
     window.addEventListener('keyup', (e) => {
+        const p = players[playerId];
+        if (p && p.frozenUntil && p.frozenUntil > Date.now()) return;
         if (e.key.startsWith('Arrow')) {
             keys[e.key] = false;
             e.preventDefault();
