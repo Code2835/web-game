@@ -106,6 +106,7 @@ function handleMessage(data) {
         });
         renderPlayers();
         updateScore();
+        renderLeaderboard();
         return;
     }
     if (data.type === 'coins') {
@@ -125,6 +126,36 @@ function handleMessage(data) {
     }
 }
 
+// leaderboard
+function renderLeaderboard() {
+    const leaderboard = document.getElementById('leaderboard');
+    const list = document.getElementById('leaderboardList');
+    if (!leaderboard || !list) return;
+    const sorted = Object.values(players).sort((a, b) => (b.score || 0) - (a.score || 0));
+    Array.from(list.children).map(li => li.getAttribute('data-name'));
+    sorted.forEach((p, i) => {
+        let li = list.querySelector(`li[data-name="${p.name}"]`);
+        if (!li) {
+            li = document.createElement('li');
+            li.setAttribute('data-name', p.name);
+            li.style.transition = 'transform 0.5s';
+            list.appendChild(li);
+        }
+        li.textContent = `${i + 1}. ${p.name}${p.name === playerName ? ' (You)' : ''} — ${p.score || 0}`;
+                li.style.color = p.color || 'white';
+        li.style.order = i;
+    });
+    Array.from(list.children).forEach(li => {
+        if (!sorted.find(p => p.name === li.getAttribute('data-name'))) li.remove();
+    });
+    leaderboard.style.display = 'block';
+}
+
+function hideLeaderboard() {
+    const leaderboard = document.getElementById('leaderboard');
+    if (leaderboard) leaderboard.style.display = 'none';
+}
+
 function showLobby() {
     const js = document.getElementById('join-screen');
     const ls = document.getElementById('lobby-screen');
@@ -137,6 +168,7 @@ function showGame() {
     const gs = document.getElementById('game-screen');
     if (ls && ls.style) ls.style.display = 'none';
     if (gs && gs.style) gs.style.display = 'block';
+    renderLeaderboard();
 }
 
 function updateScore() {
@@ -211,7 +243,14 @@ function startTimer() {
 function endGame() {
     clearInterval(timerInterval);
     document.getElementById('soundEnd')?.play();
+    hideLeaderboard();
     const sorted = Object.values(players).sort((a, b) => (b.score || 0) - (a.score || 0));
+    const winnerSpan = document.getElementById('winner');
+    if (winnerSpan && sorted.length > 0) {
+        const winner = sorted[0];
+        winnerSpan.textContent = `${winner.name} (${winner.score || 0} points)`;
+        winnerSpan.style.color = winner.color || '#ffd700';
+    }
     const list = document.getElementById('resultList');
     if (list) {
         list.innerHTML = '';

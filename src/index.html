@@ -27,6 +27,10 @@
         <button id="pauseBtn">Menu</button>
     </div>
     <div id="arena"></div>
+    <div id="leaderboard">
+        <h3>Leaderboard</h3>
+        <ul id="leaderboardList"></ul>
+    </div>
     <div id="menu" style="display:none;">
         <button id="resumeBtn">Continue</button>
         <button id="quitBtn">Quit</button>
@@ -34,6 +38,8 @@
 </div>
 
 <div id="result-screen" style="display:none;">
+    <h2>Winner</h2>
+    <span id="winner"></span>
     <h2>Results</h2>
     <ul id="resultList"></ul>
     <button onclick="location.reload()">Play Again</button>
