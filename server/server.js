@@ -21,6 +21,15 @@ function spawnCoin() {
     });
 }
 
+function spawnRedCoin() {
+    coins.push({
+        id: 'r' + (Date.now() + Math.floor(Math.random() * 1000)),
+        x: Math.floor(Math.random() * 760) + 10,
+        y: Math.floor(Math.random() * 560) + 10,
+        type: 'red'
+    });
+}
+
 function getSpawnPosition() {
     const pad = 40;
     let attempts = 0;
@@ -45,9 +54,14 @@ function getSpawnPosition() {
 }
 
 setInterval(() => {
-    if (coins.length < 10) spawnCoin();
+    if (coins.filter(c => !c.type).length < 10) spawnCoin();
     broadcast({type: 'coins', coins});
 }, 2000);
+
+setInterval(() => {
+    spawnRedCoin();
+    broadcast({type: 'coins', coins});
+}, 6000);
 
 function broadcast(msg) {
     const data = JSON.stringify(msg);
@@ -114,9 +128,14 @@ wss.on('connection', ws => {
         }
 
         if (data.type === 'pickup') {
+            const coin = coins.find(c => c.id === data.coinId);
             coins = coins.filter(c => c.id !== data.coinId);
-            if (players[data.id]) players[data.id].score++;
-            if (coins.length < 10) spawnCoin();
+            if (coin && coin.type === 'red') {
+                broadcast({type: 'speedBoost', id: data.id, duration: 1000});
+            } else {
+                if (players[data.id]) players[data.id].score++;
+            }
+            if (coins.filter(c => !c.type).length < 10) spawnCoin();
             broadcast({type: 'players', players});
             broadcast({type: 'coins', coins});
             return;

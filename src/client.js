@@ -7,6 +7,9 @@ let gameTime = 60;
 let timerInterval = null;
 let paused = false;
 let pickedCoins = new Set();
+let speedBoosts = {};
+let boostedPlayers = {};
+let playerSpeeds = {};
 
 if (LOG) console.log('client.js loaded', {href: location.href, playerId});
 
@@ -42,6 +45,7 @@ initWS();
 
 const keys = {};
 const SPEED = 3;
+let playerSpeed = SPEED;
 
 function handleMessage(data) {
     if (data.type === 'lobby') {
@@ -123,6 +127,23 @@ function handleMessage(data) {
         if (data.action === 'quit') location.reload();
         return;
     }
+    if (data.type === 'speedBoost') {
+        const {id, duration} = data;
+        boostedPlayers[id] = true;
+        playerSpeeds[id] = SPEED * 2;
+        renderPlayers();
+        if (id === playerId) {
+            playerSpeed = SPEED * 2;
+        }
+        if (speedBoosts[id]) clearTimeout(speedBoosts[id]);
+        speedBoosts[id] = setTimeout(() => {
+            boostedPlayers[id] = false;
+            playerSpeeds[id] = SPEED;
+            renderPlayers();
+            if (id === playerId) playerSpeed = SPEED;
+        }, duration || 1000);
+        return;
+    }
 }
 
 function showLobby() {
@@ -165,6 +186,15 @@ function renderPlayers() {
         el.style.backgroundColor = p.color || 'white';
         el.style.transform = `translate(${p.x || 0}px, ${p.y || 0}px)`;
         if (String(id) === String(playerId)) el.classList.add('you'); else el.classList.remove('you');
+        if (boostedPlayers[id]) {
+            el.classList.add('speed-boost');
+            el.style.filter = 'drop-shadow(0 0 10px red) brightness(1.1)';
+            el.style.opacity = '0.7';
+        } else {
+            el.classList.remove('speed-boost');
+            el.style.filter = '';
+            el.style.opacity = '';
+        }
         delete existing[id];
     });
 
@@ -185,8 +215,14 @@ function renderCoins() {
         if (!el) {
             el = document.createElement('div');
             el.className = 'coin';
+            if (c.type === 'red') el.classList.add('red-coin');
             el.setAttribute('data-id', c.id);
             arena.appendChild(el);
+        }
+        if (c.type === 'red') {
+            el.classList.add('red-coin');
+        } else {
+            el.classList.remove('red-coin');
         }
         el.style.left = `${c.x}px`;
         el.style.top = `${c.y}px`;
@@ -230,10 +266,10 @@ function gameLoop() {
         const p = players[playerId];
         if (p) {
             let dx = 0, dy = 0;
-            if (keys['ArrowUp']) dy -= SPEED;
-            if (keys['ArrowDown']) dy += SPEED;
-            if (keys['ArrowLeft']) dx -= SPEED;
-            if (keys['ArrowRight']) dx += SPEED;
+            if (keys['ArrowUp']) dy -= playerSpeed;
+            if (keys['ArrowDown']) dy += playerSpeed;
+            if (keys['ArrowLeft']) dx -= playerSpeed;
+            if (keys['ArrowRight']) dx += playerSpeed;
 
             if (dx !== 0 || dy !== 0) {
                 p.x = Math.max(0, Math.min(800 - 30, p.x + dx));
