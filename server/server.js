@@ -79,6 +79,24 @@ wss.on('connection', ws => {
 
         if (data.type === 'join') {
             ws.id = data.id;
+
+            const nameExist = Object.values(players).some(p => p.name === data.name);
+            const playerCount = Object.keys(players).length;
+
+            if (!data.name || nameExist) {
+                try {
+                    const message = !data.name ? 'Name cannot be empty!' : 'Name already exists!';
+                    ws.send(JSON.stringify({type: 'error', message}));
+                } catch (e) {}
+                return;
+            } else if (playerCount >= 4) {
+                ws.send(JSON.stringify({type: 'error', message: 'Max 4 player count reached'}));
+                return;
+            }
+            // else {
+            //     ws.send(JSON.stringify({type: 'clear-error'}))
+            // }
+
             if (!leaderId) leaderId = data.id;
             const pos = getSpawnPosition();
             players[data.id] = {
@@ -88,16 +106,24 @@ wss.on('connection', ws => {
                 score: 0,
                 color: randomColor()
             };
+
             try {
                 ws.send(JSON.stringify({type: 'lobby', players, leaderId}));
             } catch (e) {
                 console.warn('WS: failed to send lobby to new client', e);
             }
             broadcast({type: 'players', players});
+
             return;
         }
 
         if (data.type === 'startGame' && data.id === leaderId) {
+            const playerCount = Object.keys(players).length;
+            if (playerCount < 2) {
+                ws.send(JSON.stringify({type: 'error', message: 'You must have minimum 2 players to start the game'}));
+                return;
+            }
+
             coins = [];
             for (let i = 0; i < 10; i++) spawnCoin();
             broadcast({type: 'gameStart', coins, gameTime: 60});
@@ -132,9 +158,11 @@ wss.on('connection', ws => {
         console.log('WS: client disconnected', ws.id);
         if (ws.id && players[ws.id]) {
             delete players[ws.id];
+            if (ws.id === leaderId) {
+                leaderId = Object.keys(players)[0] || null;
+            }
+            broadcast({type: 'players', players, leaderId});
         }
-        if (ws.id === leaderId) leaderId = null;
-        broadcast({type: 'players', players});
     });
 });
 
