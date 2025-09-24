@@ -92,9 +92,7 @@ body {
 }
 
 .coin.red-coin {
-    background: radial-gradient(circle at 30% 30%, #ff6666 70%, #b30000 100%);
-    box-shadow: 0 0 10px 2px #ff2222cc;
-    border: 2px solid #fff0;
+    background-image: url('backgrounds/apple-red-coin.png');
 }
 
 @keyframes scoreBling {
