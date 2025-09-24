@@ -14,7 +14,10 @@ let ws = null;
 
 function initWS() {
     try {
-        const url = `ws://${location.host}`;
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = location.host;
+        const url = `${protocol}//${host}`;
+
         if (LOG) console.log('connect ws', url);
         ws = new WebSocket(url);
 
@@ -79,6 +82,7 @@ function handleMessage(data) {
         }
         return;
     }
+
     if (data.type === 'gameStart') {
         coins = data.coins || [];
         gameTime = data.gameTime || 60;
@@ -87,6 +91,7 @@ function handleMessage(data) {
         startTimer();
         return;
     }
+
     if (data.type === 'players') {
         Object.entries(data.players || {}).forEach(([id, p]) => {
             if (!players[id]) {
@@ -108,6 +113,7 @@ function handleMessage(data) {
         updateScore();
         return;
     }
+
     if (data.type === 'coins') {
         coins = data.coins || [];
         const coinIds = new Set(coins.map(c => c.id));
@@ -117,10 +123,33 @@ function handleMessage(data) {
         renderCoins();
         return;
     }
+
     if (data.type === 'menuAction') {
         if (data.action === 'pause') paused = true;
         if (data.action === 'resume') paused = false;
         if (data.action === 'quit') location.reload();
+        return;
+    }
+
+    if (data.type === 'error') {
+        const errorContainer = document.getElementById('errors');
+        const errorMessage = document.getElementById('errorMessage');
+
+        if (errorMessage && errorContainer) {
+            errorMessage.textContent = data.message;
+            errorContainer.style.display = 'block';
+        }
+
+        return;
+    }
+
+    if (data.type === 'clear-error') {
+        const errorContainer = document.getElementById('errors');
+        if (errorContainer) errorContainer.style.display = 'none';
+
+        const errorMessage = document.getElementById('errorMessage');
+        if (errorMessage) errorMessage.textContent = '';
+
         return;
     }
 }
