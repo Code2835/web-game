@@ -13,6 +13,7 @@ let players = {};
 let coins = [];
 let leaderId = null;
 let frozenCoinTimer = null;
+let gameStarted = false;
 
 function spawnCoin() {
     coins.push({
@@ -100,6 +101,12 @@ function randomColor() {
 wss.on('connection', ws => {
     console.log('WS: client connected');
 
+    if (gameStarted) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Game has already started' }));
+        ws.close();
+        return;
+    }
+
     ws.on('message', msg => {
         let data;
         try {
@@ -163,7 +170,8 @@ wss.on('connection', ws => {
                 ws.send(JSON.stringify({type: 'error', message: 'You must have minimum 2 players to start the game'}));
                 return;
             }
-
+            
+            gameStarted = true;
             coins = [];
             for (let i = 0; i < 10; i++) spawnCoin();
             broadcast({type: 'gameStart', coins, gameTime: 60});
@@ -236,6 +244,9 @@ wss.on('connection', ws => {
                 leaderId = Object.keys(players)[0] || null;
             }
             broadcast({type: 'players', players, leaderId});
+        }
+        if (Object.keys(players).length === 0) {
+            gameStarted = false;
         }
     });
 });
