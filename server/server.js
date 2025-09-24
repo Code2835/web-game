@@ -250,14 +250,10 @@ wss.on('connection', ws => {
         if (data.type === 'pickup') {
             const coin = coins.find(c => c.id === data.coinId);
             coins = coins.filter(c => c.id !== data.coinId);
+
             if (coin && coin.type === 'red') {
                 broadcast({type: 'speedBoost', id: data.id, duration: 1000});
-            } else {
-                if (players[data.id]) players[data.id].score++;
-            }
-            if (coins.filter(c => !c.type).length < 10) spawnCoin();
-            broadcast({type: 'players', players});
-            if (coin && coin.type === 'frozen') {
+            } else if (coin.type === 'frozen') {
                 const now = Date.now();
                 for (const id in players) {
                     if (id !== data.id) {
@@ -267,7 +263,9 @@ wss.on('connection', ws => {
             } else {
                 if (players[data.id]) players[data.id].score++;
             }
-            if (coins.length < 10) spawnCoin();
+
+            if (coins.filter(c => !c.type).length < 10) spawnCoin();
+
             const playersWithFrozen = {};
             for (const id in players) {
                 playersWithFrozen[id] = {
