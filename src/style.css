@@ -77,7 +77,8 @@ body {
     width: 20px;
     height: 20px;
     position: absolute;
-    background: gold;
+    background-image: url('backgrounds/coin.png');
+    background-size: cover;
     border-radius: 50%;
     animation: coinSpawn 0.3s ease-out;
 }
