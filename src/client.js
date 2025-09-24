@@ -101,13 +101,12 @@ function handleMessage(data) {
             if (!players[id]) {
                 players[id] = {...p, x: p.x, y: p.y, targetX: p.x, targetY: p.y};
             } else {
-                if (id === playerId) {
-                    players[id].score = p.score;
-                } else {
-                    players[id].targetX = p.x;
-                    players[id].targetY = p.y;
-                    players[id].score = p.score;
-                }
+                players[id].targetX = p.x;
+                players[id].targetY = p.y;
+                players[id].score = p.score;
+                players[id].color = p.color;
+                players[id].name = p.name;
+                players[id].frozenUntil = p.frozenUntil || 0;
             }
         });
         Object.keys(players).forEach(id => {
@@ -192,7 +191,7 @@ function renderLeaderboard() {
             list.appendChild(li);
         }
         li.textContent = `${i + 1}. ${p.name}${p.name === playerName ? ' (You)' : ''} — ${p.score || 0}`;
-                li.style.color = p.color || 'white';
+        li.style.color = p.color || 'white';
         li.style.order = i;
     });
     Array.from(list.children).forEach(li => {
@@ -256,6 +255,11 @@ function renderPlayers() {
             el.style.filter = '';
             el.style.opacity = '';
         }
+        if (p.frozenUntil && p.frozenUntil > Date.now()) {
+            el.classList.add('frozen-player');
+        } else {
+            el.classList.remove('frozen-player');
+        }
         delete existing[id];
     });
 
@@ -277,8 +281,11 @@ function renderCoins() {
             el = document.createElement('div');
             el.className = 'coin';
             if (c.type === 'red') el.classList.add('red-coin');
+            el.className = c.type === 'frozen' ? 'coin frozen-coin' : 'coin';
             el.setAttribute('data-id', c.id);
             arena.appendChild(el);
+        } else {
+            el.className = c.type === 'frozen' ? 'coin frozen-coin' : 'coin';
         }
         if (c.type === 'red') {
             el.classList.add('red-coin');
@@ -332,13 +339,15 @@ function endGame() {
 function gameLoop() {
     if (!paused) {
         const p = players[playerId];
+        const isFrozen = p && p.frozenUntil && p.frozenUntil > Date.now();
         if (p) {
             let dx = 0, dy = 0;
-            if (keys['ArrowUp']) dy -= playerSpeed;
-            if (keys['ArrowDown']) dy += playerSpeed;
-            if (keys['ArrowLeft']) dx -= playerSpeed;
-            if (keys['ArrowRight']) dx += playerSpeed;
-
+            if (!isFrozen) {
+                if (keys['ArrowUp']) dy -= playerSpeed;
+                if (keys['ArrowDown']) dy += playerSpeed;
+                if (keys['ArrowLeft']) dx -= playerSpeed;
+                if (keys['ArrowRight']) dx += playerSpeed;
+            }
             if (dx !== 0 || dy !== 0) {
                 p.x = Math.max(0, Math.min(800 - 30, p.x + dx));
                 p.y = Math.max(0, Math.min(600 - 30, p.y + dy));
@@ -346,6 +355,7 @@ function gameLoop() {
                 p.targetY = p.y;
                 const myEl = document.querySelector(`.player[data-id="${playerId}"]`);
                 if (myEl) myEl.style.transform = `translate(${p.x}px, ${p.y}px)`;
+                if (isFrozen) return;
                 if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({
                     type: 'move',
                     id: playerId,
@@ -367,6 +377,11 @@ function gameLoop() {
                 if (el) el.style.transform = `translate(${p.x}px, ${p.y}px)`;
             }
         });
+        const myEl = document.querySelector(`.player[data-id="${playerId}"]`);
+        if (myEl) {
+            if (isFrozen) myEl.classList.add('frozen-player');
+            else myEl.classList.remove('frozen-player');
+        }
         requestAnimationFrame(gameLoop);
     }
 }
@@ -419,12 +434,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     window.addEventListener('keydown', (e) => {
+        const p = players[playerId];
+        if (p && p.frozenUntil && p.frozenUntil > Date.now()) return;
         if (e.key.startsWith('Arrow')) {
             keys[e.key] = true;
             e.preventDefault();
         }
     }, {passive: false});
     window.addEventListener('keyup', (e) => {
+        const p = players[playerId];
+        if (p && p.frozenUntil && p.frozenUntil > Date.now()) return;
         if (e.key.startsWith('Arrow')) {
             keys[e.key] = false;
             e.preventDefault();

@@ -87,6 +87,10 @@ body {
     animation: coinSpawn 0.3s ease-out;
 }
 
+.frozen-coin {
+    background-image: url('backgrounds/frozen-coin.png');
+}
+
 .coin.picked {
     animation: coinPickup 0.3s forwards;
 }
@@ -158,4 +162,10 @@ body {
 
 #leaderboardList li[data-name] {
     cursor: default;
+}
+
+.frozen-player {
+    opacity: 0.5;
+    filter: blur(1px) drop-shadow(0 0 8px #00eaff);
+    transition: opacity 0.2s, filter 0.2s;
 }
