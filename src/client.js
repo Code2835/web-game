@@ -75,15 +75,7 @@ function handleMessage(data) {
             if (data.leaderId && String(data.leaderId) === String(playerId)) startBtn.style.display = 'block';
             else startBtn.style.display = 'none';
         }
-        const list = document.getElementById('playersList');
-        if (list) {
-            list.innerHTML = '';
-            Object.values(players).forEach(p => {
-                const li = document.createElement('li');
-                li.textContent = p.name + (p.name === playerName ? ' (You)' : '');
-                list.appendChild(li);
-            });
-        }
+        renderLobbyPlayers();
         return;
     }
 
@@ -115,6 +107,7 @@ function handleMessage(data) {
         renderPlayers();
         updateScore();
         renderLeaderboard();
+        renderLobbyPlayers();
         return;
     }
 
@@ -156,6 +149,7 @@ function handleMessage(data) {
 
         return;
     }
+    
     if (data.type === 'speedBoost') {
         const {id, duration} = data;
         boostedPlayers[id] = true;
@@ -172,6 +166,18 @@ function handleMessage(data) {
             if (id === playerId) playerSpeed = SPEED;
         }, duration || 1000);
         return;
+    }
+}
+
+function renderLobbyPlayers() {
+    const list = document.getElementById('playersList');
+    if (list) {
+        list.innerHTML = '';
+        Object.values(players).forEach(p => {
+            const li = document.createElement('li');
+            li.textContent = p.name + (p.name === playerName ? ' (You)' : '');
+            list.appendChild(li);
+        });
     }
 }
 
