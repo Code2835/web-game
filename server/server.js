@@ -13,7 +13,10 @@ let players = {};
 let coins = [];
 let leaderId = null;
 let frozenCoinTimer = null;
-let gameStarted = false;
+// let gameStarted = false;
+let gameState = 'LOBBY'; // LOBBY || PLAYING
+let gameTimer = 60; // seconds
+let gameCountdownInterval = null;
 
 function spawnCoin() {
     coins.push({
@@ -98,10 +101,28 @@ function randomColor() {
     return colors[Math.floor(Math.random() * colors.length)];
 }
 
+function startGameCountdown() {
+    clearInterval(gameCountdownInterval);
+    gameTimer = 60;
+    gameCountdownInterval = setInterval(() => {
+        if (gameState === 'PLAYING') {
+            gameTimer--;
+            broadcast({type: 'timerUpdate', gameTime: gameTimer});
+            if (gameTimer <= 0) {
+                clearInterval(gameCountdownInterval);
+                gameState = 'LOBBY';
+                broadcast({type: 'gameOver', players});
+                coins = [];
+                Object.values(players).forEach(p => p.score = 0);
+            }
+        }
+    }, 1000);
+}
+
 wss.on('connection', ws => {
     console.log('WS: client connected');
 
-    if (gameStarted) {
+    if (gameState === 'PLAYING') {
         ws.send(JSON.stringify({type: 'error', message: 'Game has already started'}));
         ws.close();
         return;
@@ -133,10 +154,9 @@ wss.on('connection', ws => {
             } else if (playerCount >= 4) {
                 ws.send(JSON.stringify({type: 'error', message: 'Max 4 player count reached'}));
                 return;
+            } else {
+                ws.send(JSON.stringify({type: 'clear-error'}))
             }
-            // else {
-            //     ws.send(JSON.stringify({type: 'clear-error'}))
-            // }
 
             if (!leaderId) leaderId = data.id;
             const pos = getSpawnPosition();
@@ -149,10 +169,10 @@ wss.on('connection', ws => {
                 frozenUntil: 0
             };
 
-            try {
+            if (gameState === 'PLAYING') {
+                ws.send(JSON.stringify({type: 'rejoin', players, leaderId, coins, gameTime: gameTimer}));
+            } else {
                 ws.send(JSON.stringify({type: 'lobby', players, leaderId}));
-            } catch (e) {
-                console.warn('WS: failed to send lobby to new client', e);
             }
             const playersWithFrozen = {};
             for (const id in players) {
@@ -162,6 +182,14 @@ wss.on('connection', ws => {
                 };
             }
             broadcast({type: 'players', players: playersWithFrozen});
+
+            const playersUpdate = JSON.stringify({type: 'players', players});
+            wss.clients.forEach(c => {
+                if (c.readyState === WebSocket.OPEN && c.id !== ws.id) {
+                    c.send(playersUpdate);
+                }
+            });
+
             return;
         }
 
@@ -172,10 +200,31 @@ wss.on('connection', ws => {
                 return;
             }
 
-            gameStarted = true;
+            // gameStarted = true;
+            gameState = 'PLAYING';
+            startGameCountdown();
             coins = [];
             for (let i = 0; i < 10; i++) spawnCoin();
-            broadcast({type: 'gameStart', coins, gameTime: 60});
+            broadcast({type: 'gameStart', coins, gameTime: gameTimer});
+            return;
+        }
+
+        if (data.type === 'restart' && data.id === leaderId) {
+            gameState = 'PLAYING';
+            startGameCountdown();
+            coins = [];
+            for (let i = 0; i < 10; i++) spawnCoin();
+
+            Object.values(players).forEach(p => {
+                const pos = getSpawnPosition();
+                p.x = pos.x;
+                p.y = pos.y;
+                p.score = 0;
+                p.frozenUntil = 0;
+            });
+            broadcast({type: 'players', players});
+            broadcast({type: 'gameStart', coins, gameTime: gameTimer});
+            broadcast({type: 'menuAction', action: 'restart', name: players[data.id]?.name || 'A player'});
             return;
         }
 
@@ -232,7 +281,7 @@ wss.on('connection', ws => {
         }
 
         if (data.type === 'pause' || data.type === 'resume' || data.type === 'quit') {
-            broadcast({type: 'menuAction', action: data.type, name: data.name});
+            broadcast({type: 'menuAction', action: data.type, name: players[data.id]?.name || 'A player'});
             return;
         }
     });
@@ -241,14 +290,32 @@ wss.on('connection', ws => {
         console.log('WS: client disconnected', ws.id);
         if (ws.id && players[ws.id]) {
             delete players[ws.id];
+
             if (ws.id === leaderId) {
                 leaderId = Object.keys(players)[0] || null;
             }
-            broadcast({type: 'players', players, leaderId});
+
+            if (Object.keys(players).length === 0) {
+                gameState = 'LOBBY';
+                leaderId = null;
+                clearInterval(gameCountdownInterval);
+                gameTimer = 60;
+                coins = [];
+                if (frozenCoinTimer) clearInterval(frozenCoinTimer);
+            }
+
+            if (gameState === 'PLAYING') {
+                broadcast({type: 'players', players});
+            } else {
+                broadcast({type: 'lobby', players, leaderId});
+            }
+
+            // broadcast({type: 'lobby', players, leaderId});
         }
-        if (Object.keys(players).length === 0) {
-            gameStarted = false;
-        }
+
+        // if (Object.keys(players).length === 0) {
+        //     gameStarted = false;
+        // }
     });
 });
 

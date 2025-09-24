@@ -85,6 +85,28 @@ function handleMessage(data) {
         showGame();
         renderCoins();
         startTimer();
+        paused = false;
+        const menu = document.getElementById('menu');
+        if (menu) menu.style.display = 'none';
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+
+    if (data.type === 'gameOver') {
+        players = data.players || {};
+        endGame();
+        return;
+    }
+
+    if (data.type === 'rejoin') {
+        players = data.players || {};
+        coins = data.coins || [];
+        gameTime = data.gameTime || 0;
+        showGame();
+        renderPlayers();
+        renderCoins();
+        startTimer();
+        requestAnimationFrame(gameLoop);
         return;
     }
 
@@ -93,6 +115,8 @@ function handleMessage(data) {
             if (!players[id]) {
                 players[id] = {...p, x: p.x, y: p.y, targetX: p.x, targetY: p.y};
             } else {
+                players[id].x = p.x;
+                players[id].y = p.y;
                 players[id].targetX = p.x;
                 players[id].targetY = p.y;
                 players[id].score = p.score;
@@ -124,7 +148,17 @@ function handleMessage(data) {
     if (data.type === 'menuAction') {
         if (data.action === 'pause') paused = true;
         if (data.action === 'resume') paused = false;
+        if (data.action === 'resume') requestAnimationFrame(gameLoop);
         if (data.action === 'quit') location.reload();
+        return;
+        if (data.action === 'quit') location.reload();
+        return;
+    }
+
+    if (data.type === 'timerUpdate') {
+        gameTime = data.gameTime;
+        const timerEl = document.getElementById('timer');
+        if (timerEl) timerEl.textContent = String(gameTime);
         return;
     }
 
@@ -149,7 +183,7 @@ function handleMessage(data) {
 
         return;
     }
-    
+
     if (data.type === 'speedBoost') {
         const {id, duration} = data;
         boostedPlayers[id] = true;
@@ -221,9 +255,11 @@ function showLobby() {
 function showGame() {
     const ls = document.getElementById('lobby-screen');
     const gs = document.getElementById('game-screen');
+    const js = document.getElementById('join-screen');
     if (ls && ls.style) ls.style.display = 'none';
     if (gs && gs.style) gs.style.display = 'block';
     renderLeaderboard();
+    if (js && js.style) js.style.display = 'none';
 }
 
 function updateScore() {
@@ -308,11 +344,14 @@ function renderCoins() {
 
 function startTimer() {
     clearInterval(timerInterval);
+    const timerEl = document.getElementById('timer');
+    if (timerEl) timerEl.textContent = String(gameTime);
+
     timerInterval = setInterval(() => {
         if (!paused) {
-            gameTime--;
-            const timerEl = document.getElementById('timer');
-            if (timerEl) timerEl.textContent = String(gameTime);
+            // gameTime--;
+            // const timerEl = document.getElementById('timer');
+            // if (timerEl) timerEl.textContent = String(gameTime);
             if (gameTime <= 0) endGame();
         }
     }, 1000);
@@ -397,6 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const startBtn = document.getElementById('startBtn');
     const pauseBtn = document.getElementById('pauseBtn');
     const resumeBtn = document.getElementById('resumeBtn');
+    const restartBtn = document.getElementById('restartBtn');
     const quitBtn = document.getElementById('quitBtn');
     const playerNameInput = document.getElementById('playerName');
 
@@ -412,6 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
     startBtn?.addEventListener('click', () => {
         if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type: 'startGame', id: playerId}));
     });
+
     pauseBtn?.addEventListener('click', () => {
         paused = true;
         document.getElementById('menu')?.style && (document.getElementById('menu').style.display = 'block');
@@ -421,6 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
             name: playerName
         }));
     });
+
     resumeBtn?.addEventListener('click', () => {
         paused = false;
         document.getElementById('menu')?.style && (document.getElementById('menu').style.display = 'none');
@@ -429,7 +471,17 @@ document.addEventListener('DOMContentLoaded', () => {
             id: playerId,
             name: playerName
         }));
+        requestAnimationFrame(gameLoop);
     });
+
+    restartBtn?.addEventListener('click', () => {
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({
+            type: 'restart',
+            id: playerId,
+            name: playerName
+        }));
+    });
+
     quitBtn?.addEventListener('click', () => {
         if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({
             type: 'quit',
