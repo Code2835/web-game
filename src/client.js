@@ -14,7 +14,10 @@ let ws = null;
 
 function initWS() {
     try {
-        const url = `ws://${location.host}`;
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = location.host;
+        const url = `${protocol}//${host}`;
+
         if (LOG) console.log('connect ws', url);
         ws = new WebSocket(url);
 
