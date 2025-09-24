@@ -47,7 +47,7 @@ function initWS() {
 initWS();
 
 const keys = {};
-const SPEED = 3;
+const SPEED = 2;
 let playerSpeed = SPEED;
 
 function handleMessage(data) {
@@ -151,8 +151,6 @@ function handleMessage(data) {
         if (data.action === 'resume') requestAnimationFrame(gameLoop);
         if (data.action === 'quit') location.reload();
         return;
-        if (data.action === 'quit') location.reload();
-        return;
     }
 
     if (data.type === 'timerUpdate') {
@@ -187,7 +185,6 @@ function handleMessage(data) {
     if (data.type === 'speedBoost') {
         const {id, duration} = data;
         boostedPlayers[id] = true;
-        playerSpeeds[id] = SPEED * 2;
         renderPlayers();
         if (id === playerId) {
             playerSpeed = SPEED * 2;
