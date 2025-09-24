@@ -105,3 +105,49 @@ body {
 .score-bling {
     animation: scoreBling 0.3s ease-out;
 }
+
+#leaderboard {
+    width: 800px;
+    margin: 16px auto 0 auto;
+    background: rgba(20, 20, 20, 0.95);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px #0008;
+    padding: 12px 0 8px 0;
+    color: #fff;
+    display: none;
+}
+
+#leaderboard h3 {
+    margin: 0 0 8px 0;
+    font-size: 1.1em;
+    text-align: center;
+    color: #ffd700;
+    letter-spacing: 1px;
+    font-weight: 600;
+}
+
+#leaderboardList {
+    list-style: none;
+    margin: 0;
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+#leaderboardList li {
+    background: rgba(40, 40, 40, 0.95);
+    margin: 0;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-weight: 500;
+    font-size: 1em;
+    transition: transform 0.5s, background 0.3s;
+    will-change: transform;
+    color: #fff;
+    text-shadow: 0 1px 2px #000a;
+}
+
+#leaderboardList li[data-name] {
+    cursor: default;
+}
