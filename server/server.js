@@ -102,7 +102,7 @@ wss.on('connection', ws => {
     console.log('WS: client connected');
 
     if (gameStarted) {
-        ws.send(JSON.stringify({ type: 'error', message: 'Game has already started' }));
+        ws.send(JSON.stringify({type: 'error', message: 'Game has already started'}));
         ws.close();
         return;
     }
@@ -127,7 +127,8 @@ wss.on('connection', ws => {
                 try {
                     const message = !data.name ? 'Name cannot be empty!' : 'Name already exists!';
                     ws.send(JSON.stringify({type: 'error', message}));
-                } catch (e) {}
+                } catch (e) {
+                }
                 return;
             } else if (playerCount >= 4) {
                 ws.send(JSON.stringify({type: 'error', message: 'Max 4 player count reached'}));
@@ -170,7 +171,7 @@ wss.on('connection', ws => {
                 ws.send(JSON.stringify({type: 'error', message: 'You must have minimum 2 players to start the game'}));
                 return;
             }
-            
+
             gameStarted = true;
             coins = [];
             for (let i = 0; i < 10; i++) spawnCoin();
