@@ -82,6 +82,10 @@ function handleMessage(data) {
     if (data.type === 'gameStart') {
         coins = data.coins || [];
         gameTime = data.gameTime || 60;
+        if (data.background) {
+            const arena = document.getElementById('arena');
+            if (arena) arena.style.backgroundImage = `url(${data.background})`;
+        }
         showGame();
         renderCoins();
         startTimer();
@@ -355,6 +359,7 @@ function startTimer() {
 }
 
 function endGame() {
+    playerSpeed = 0;
     clearInterval(timerInterval);
     document.getElementById('soundEnd')?.play();
     hideLeaderboard();

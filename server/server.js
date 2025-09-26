@@ -9,6 +9,8 @@ const wss = new WebSocket.WebSocketServer({server});
 const path = require('path');
 app.use(express.static(path.join(__dirname, '..', 'src')));
 
+const backgroundFiles = ['backgrounds/forest.png', 'backgrounds/city.png', 'backgrounds/lava.png', 'backgrounds/ice.png'];
+
 let players = {};
 let coins = [];
 let leaderId = null;
@@ -205,7 +207,8 @@ wss.on('connection', ws => {
             startGameCountdown();
             coins = [];
             for (let i = 0; i < 10; i++) spawnCoin();
-            broadcast({type: 'gameStart', coins, gameTime: gameTimer});
+            const background = backgroundFiles[Math.floor(Math.random() * backgroundFiles.length)];
+            broadcast({type: 'gameStart', coins, gameTime: gameTimer, background: background});
             return;
         }
 
@@ -223,7 +226,7 @@ wss.on('connection', ws => {
                 p.frozenUntil = 0;
             });
             broadcast({type: 'players', players});
-            broadcast({type: 'gameStart', coins, gameTime: gameTimer});
+            broadcast({type: 'gameStart', coins, gameTime: gameTimer, });
             broadcast({type: 'menuAction', action: 'restart', name: players[data.id]?.name || 'A player'});
             return;
         }
