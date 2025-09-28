@@ -10,6 +10,7 @@ let pickedCoins = new Set();
 let speedBoosts = {};
 let boostedPlayers = {};
 let playerSpeeds = {};
+let lastTime = 0;
 
 if (LOG) console.log('client.js loaded', {href: location.href, playerId});
 
@@ -47,7 +48,7 @@ function initWS() {
 initWS();
 
 const keys = {};
-const SPEED = 2;
+const SPEED = 3;
 let playerSpeed = SPEED;
 
 function handleMessage(data) {
@@ -381,8 +382,14 @@ function endGame() {
     document.getElementById('result-screen')?.style && (document.getElementById('result-screen').style.display = 'block');
 }
 
-function gameLoop() {
+function gameLoop(time = 0) {
     if (!paused) {
+        if (!lastTime) {
+            lastTime = time;
+        }
+        const deltaTime = (time - lastTime) / (1000 / 60);
+        lastTime = time;
+
         const p = players[playerId];
         const isFrozen = p && p.frozenUntil && p.frozenUntil > Date.now();
         if (p) {
@@ -394,8 +401,8 @@ function gameLoop() {
                 if (keys['ArrowRight']) dx += playerSpeed;
             }
             if (dx !== 0 || dy !== 0) {
-                p.x = Math.max(0, Math.min(800 - 30, p.x + dx));
-                p.y = Math.max(0, Math.min(600 - 30, p.y + dy));
+                p.x = Math.max(0, Math.min(800 - 30, p.x + dx * deltaTime));
+                p.y = Math.max(0, Math.min(600 - 30, p.y + dy * deltaTime));
                 p.targetX = p.x;
                 p.targetY = p.y;
                 const myEl = document.querySelector(`.player[data-id="${playerId}"]`);
@@ -411,16 +418,14 @@ function gameLoop() {
             }
         }
         Object.entries(players).forEach(([id, p]) => {
-            if (id !== playerId) {
-                if (typeof p.x === 'number' && typeof p.targetX === 'number') {
-                    p.x += (p.targetX - p.x) * 0.07;
-                }
-                if (typeof p.y === 'number' && typeof p.targetY === 'number') {
-                    p.y += (p.targetY - p.y) * 0.07;
-                }
-                const el = document.querySelector(`.player[data-id="${id}"]`);
-                if (el) el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+            if (typeof p.x === 'number' && typeof p.targetX === 'number') {
+                p.x += (p.targetX - p.x) * 0.07;
             }
+            if (typeof p.y === 'number' && typeof p.targetY === 'number') {
+                p.y += (p.targetY - p.y) * 0.07;
+            }
+            const el = document.querySelector(`.player[data-id="${id}"]`);
+            if (el) el.style.transform = `translate(${p.x}px, ${p.y}px)`;
         });
         const myEl = document.querySelector(`.player[data-id="${playerId}"]`);
         if (myEl) {
