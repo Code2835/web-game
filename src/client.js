@@ -119,8 +119,6 @@ function handleMessage(data) {
             if (!players[id]) {
                 players[id] = {...p, x: p.x, y: p.y, targetX: p.x, targetY: p.y};
             } else {
-                players[id].x = p.x;
-                players[id].y = p.y;
                 players[id].targetX = p.x;
                 players[id].targetY = p.y;
                 players[id].score = p.score;
