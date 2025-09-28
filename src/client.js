@@ -413,10 +413,10 @@ function gameLoop() {
         Object.entries(players).forEach(([id, p]) => {
             if (id !== playerId) {
                 if (typeof p.x === 'number' && typeof p.targetX === 'number') {
-                    p.x += (p.targetX - p.x) * 0.1;
+                    p.x += (p.targetX - p.x) * 0.07;
                 }
                 if (typeof p.y === 'number' && typeof p.targetY === 'number') {
-                    p.y += (p.targetY - p.y) * 0.1;
+                    p.y += (p.targetY - p.y) * 0.07;
                 }
                 const el = document.querySelector(`.player[data-id="${id}"]`);
                 if (el) el.style.transform = `translate(${p.x}px, ${p.y}px)`;
