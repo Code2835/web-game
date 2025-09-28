@@ -48,7 +48,7 @@ function initWS() {
 initWS();
 
 const keys = {};
-const SPEED = 2;
+const SPEED = 3;
 let playerSpeed = SPEED;
 
 function handleMessage(data) {
